@@ -224,5 +224,5 @@ Skripsi S1 Teknik Informatika, Universitas Pelita Bangsa, disahkan 26 Juli 2026.
 **Muhammad Dikaisa Ibnu Amin**
 Fresh graduate Teknik Informatika, tertarik di bidang Data Analyst & Data Science
 
-- LinkedIn: `[link LinkedIn]`
-- Email: `[email]`
+- LinkedIn: linkedin.com/in/muhammaddikaisa/
+- Email: muhammaddikaisa1@gmail.com
