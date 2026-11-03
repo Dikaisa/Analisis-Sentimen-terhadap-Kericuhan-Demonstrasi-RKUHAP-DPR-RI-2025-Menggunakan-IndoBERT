@@ -11,6 +11,8 @@ Project ini merupakan skripsi S1 Teknik Informatika, Universitas Pelita Bangsa (
 
 **Hasil utama:** Accuracy **0,94** dan Macro F1-score **0,94** pada 2.207 data uji yang seimbang.
 
+> Skor ini diukur terhadap label otomatis pada data uji yang juga memuat data sintetis, jadi bukan akurasi terhadap penilaian manusia. Lihat [Keterbatasan](#️-keterbatasan-evaluasi).
+
 ---
 
 ## 📌 Latar Belakang
@@ -32,7 +34,9 @@ Pembahasan RKUHAP DPR RI tahun 2025 memicu aksi demonstrasi di berbagai daerah d
 | Sumber data | Dataset publik Kaggle: [sentimen-demo-dpr](https://www.kaggle.com/datasets/jawawahirul/sentimen-demo-dpr) |
 | Platform asal | Media sosial X (Twitter) |
 | Jumlah data awal | 18.837 teks |
-| Atribut | `text`, `clean_text`, `normalize_text`, `sentiment`, `confidence_score` |
+| Atribut di repo | `clean_text`, `normalize_text`, `sentiment` (label), `confidence_score` (setelah auto-labeling) |
+| Pelabelan | Otomatis dengan model [`Aardiiiiy/indobertweet-base-Indonesian-sentiment-analysis`](https://huggingface.co/Aardiiiiy/indobertweet-base-Indonesian-sentiment-analysis) |
+| Privasi | Kolom `text` (tweet mentah berisi username) tidak disertakan. Teks asli bisa diambil dari sumber Kaggle |
 | Label | Negative, Neutral, Positive |
 | Dataset final | 7.356 data (2.452 per kelas) |
 
@@ -50,7 +54,7 @@ Pembahasan RKUHAP DPR RI tahun 2025 memicu aksi demonstrasi di berbagai daerah d
 ## ⚙️ Metodologi
 
 ```
-Dataset Kaggle → Text Cleaning → Normalisasi → Filter Confidence (≥ 0,85)
+Dataset Kaggle → Text Cleaning → Normalisasi → Auto-labeling → Filter Confidence (≥ 0,85)
 → Augmentasi LLM → Gabung & Deduplikasi → Undersampling → Split 70:30
 → Fine-tuning IndoBERT → Evaluasi
 ```
@@ -68,13 +72,13 @@ Dataset Kaggle → Text Cleaning → Normalisasi → Filter Confidence (≥ 0,85
 
 | Tahap | File | Jumlah Data | Keterangan |
 |---|---|---|---|
-| Dataset awal | `data_labeled.csv` | 18.837 | Data mentah dari Kaggle |
+| Dataset awal | `data_labeled.csv` | 18.837 | Data dari Kaggle setelah preprocessing |
 | High confidence | `data_high_confidence.csv` | 13.793 | Filter `confidence_score >= 0,85` |
 | Augmentasi LLM | `data_augmentasi.csv` | 1.559 | 11 Negative, 188 Neutral, 1.360 Positive |
 | Gabungan | `data_combined.csv` | 15.352 | `concat()` + `drop_duplicates()` |
-| **Final** | `data_balanced.csv` | **7.356** | Undersampling ke 2.452 per kelas |
+| **Final** | `data_balanced.csv` | **7.356** | Undersampling ke 2.452 per kelas, ambil `confidence_score` tertinggi |
 
-> LLM hanya dipakai untuk membangkitkan data sintetis kelas minoritas. Model klasifikasi utamanya tetap IndoBERT.
+> LLM hanya dipakai untuk membangkitkan data sintetis kelas minoritas. Model klasifikasi utamanya tetap IndoBERT. Skrip pembangkitnya belum disertakan di repo ini, hanya hasilnya (`data_augmentasi.csv`).
 
 ### 3. Split Data
 Stratified split 70:30 (`test_size=0.30`, `stratify=label`, `random_state=42`):
@@ -104,6 +108,8 @@ Classification head (linear layer 768 → 3 kelas) di atas token `[CLS]`, dilati
 
 ## 📊 Hasil
 
+> ⚠️ **Perlu dicek:** angka di bagian ini belum sama dengan output notebook. Notebook mencatat run 10 epoch dengan batch size 32, accuracy 0,93, dan macro F1 0,93 ([confusion matrix](images/confusion_matrix.png)).
+
 ### Classification Report
 
 | Kelas | Precision | Recall | F1-Score | Support |
@@ -126,11 +132,26 @@ Classification head (linear layer 768 → 3 kelas) di atas token `[CLS]`, dilati
 <!-- ![Confusion Matrix](images/confusion_matrix.png) -->
 
 ### Insight Utama
-- Opini publik di X **didominasi sentimen negatif** (65% data awal), berisi kecaman terhadap tindakan aparat, keprihatinan atas korban, dan kritik terhadap proses legislasi RKUHAP.
+- Berdasarkan label otomatis, opini publik di X **didominasi sentimen negatif** (65% data awal), berisi kecaman terhadap tindakan aparat, keprihatinan atas korban, dan kritik terhadap proses legislasi RKUHAP.
 - Sentimen netral umumnya berupa info, kronologi, atau pertanyaan singkat. Sentimen positif berisi apresiasi terhadap aksi mahasiswa dan harapan perubahan kebijakan.
 - Kesalahan klasifikasi paling banyak terjadi di **batas kelas Neutral** (41 Negative dan 37 Positive salah diprediksi sebagai Neutral).
 
 ---
+
+## ⚠️ Keterbatasan Evaluasi
+
+Skor 0,94 adalah hasil skripsi dan tetap dicantumkan apa adanya. Supaya tidak salah baca, ada empat hal yang perlu diketahui:
+
+| Keterbatasan | Dampak |
+|---|---|
+| **Label otomatis** | Label berasal dari model lain, bukan anotator manusia. Skor 0,94 menunjukkan tingkat kecocokan dengan model pelabel. |
+| **Data sintetis masuk data uji** | Split dilakukan setelah augmentasi. Sekitar 456 dari 2.207 data uji (21%) adalah data LLM, termasuk sekitar 57% kelas Positive. |
+| **Ada teks kembar** | 135 data uji teksnya sama dengan data latih setelah dinormalisasi. |
+| **Data yang mudah** | Data dipilih dari confidence ≥ 0,85, lalu undersampling mengambil confidence tertinggi. Data sulit jadi jarang muncul di data uji. |
+
+Skor pada data dunia nyata kemungkinan lebih rendah. Evaluasi yang lebih ketat disiapkan di [`notebooks/evaluasi_tanpa_kebocoran.ipynb`](notebooks/evaluasi_tanpa_kebocoran.ipynb) dan [`data/gold_set_untuk_dilabel.csv`](data/gold_set_untuk_dilabel.csv). Notebook ini **belum dijalankan**, jadi belum ada hasil yang bisa dikutip.
+
+* * *
 
 ## 🔍 Error Analysis
 
@@ -155,6 +176,8 @@ Untuk mengatasi teks non-Indonesia, dicoba pipeline *language-aware*: deteksi ba
 | Macro F1-score | **0,94** | 0,79 |
 | Data uji | 2.207 | 3.914 |
 
+> Notebook eksperimen ini belum disertakan di repo.
+
 **Kesimpulan:** penerjemahan otomatis justru menurunkan performa, terutama di kelas Neutral (precision 0,56). Terjemahan cenderung mengubah nuansa teks media sosial yang pendek, informal, dan sarkastis. Pipeline baseline tetap dipakai sebagai hasil utama.
 
 ---
@@ -167,10 +190,11 @@ Untuk mengatasi teks non-Indonesia, dicoba pipeline *language-aware*: deteksi ba
 │   ├── data_high_confidence.csv
 │   ├── data_augmentasi.csv
 │   ├── data_combined.csv
-│   └── data_balanced.csv
+│   ├── data_balanced.csv
+│   └── gold_set_untuk_dilabel.csv
 ├── notebooks/
 │   ├── baseline_indobert.ipynb
-│   └── pipeline_translation.ipynb
+│   └── evaluasi_tanpa_kebocoran.ipynb
 ├── images/
 ├── requirements.txt
 └── README.md
@@ -181,8 +205,8 @@ Untuk mengatasi teks non-Indonesia, dicoba pipeline *language-aware*: deteksi ba
 ## 🚀 Cara Menjalankan
 
 ```bash
-git clone https://github.com/[username]/[nama-repo].git
-cd [nama-repo]
+git clone https://github.com/Dikaisa/Analisis-Sentimen-terhadap-Kericuhan-Demonstrasi-RKUHAP-DPR-RI-2025-Menggunakan-IndoBERT.git
+cd Analisis-Sentimen-terhadap-Kericuhan-Demonstrasi-RKUHAP-DPR-RI-2025-Menggunakan-IndoBERT
 pip install -r requirements.txt
 ```
 
@@ -204,6 +228,7 @@ Jalankan notebook di folder `notebooks/`. Disarankan pakai **Google Colab dengan
 
 ## 🔮 Pengembangan Selanjutnya
 
+- Menjalankan evaluasi pada gold set berlabel manusia
 - Menambahkan modul deteksi sarkasme dan penanganan code-switching
 - Mencoba model yang lebih besar atau multibahasa (IndoBERT-large, RoBERTa, DeBERTa)
 - Memperluas data ke platform lain (Instagram, TikTok, Kaskus) dan topik berbeda
@@ -224,5 +249,5 @@ Skripsi S1 Teknik Informatika, Universitas Pelita Bangsa, disahkan 26 Juli 2026.
 **Muhammad Dikaisa Ibnu Amin**
 Fresh graduate Teknik Informatika, tertarik di bidang Data Analyst & Data Science
 
-- LinkedIn: linkedin.com/in/muhammaddikaisa/
+- LinkedIn: [linkedin.com/in/muhammaddikaisa](https://www.linkedin.com/in/muhammaddikaisa/)
 - Email: muhammaddikaisa1@gmail.com
