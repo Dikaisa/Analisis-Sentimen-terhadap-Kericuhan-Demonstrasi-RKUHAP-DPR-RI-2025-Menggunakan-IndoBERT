@@ -108,7 +108,7 @@ Classification head (linear layer 768 → 3 kelas) di atas token `[CLS]`, dilati
 
 ## 📊 Hasil
 
-> ⚠️ **Perlu dicek:** angka di bagian ini belum sama dengan output notebook. Notebook mencatat run 10 epoch dengan batch size 32, accuracy 0,93, dan macro F1 0,93 ([confusion matrix](images/confusion_matrix.png)).
+> Angka di bagian ini mengikuti naskah skripsi: 5 epoch dan batch size 16. Notebook di repo menyimpan output run lain (10 epoch, batch size 32, accuracy dan macro F1 0,93, lihat [confusion matrix](images/confusion_matrix.png)).
 
 ### Classification Report
 
